@@ -105,7 +105,33 @@ e1000_transmit(char *buf, int len)
   // so that the caller knows to free buf.
   //
 
+  acquire(&e1000_lock);
   
+  // Get the next TX ring index
+  uint32 tdt = regs[E1000_TDT];
+  
+  // Check if the descriptor is available (DD bit must be set)
+  if((tx_ring[tdt].status & E1000_TXD_STAT_DD) == 0) {
+    // Ring is full, descriptor not yet processed
+    release(&e1000_lock);
+    return -1;
+  }
+  
+  // Free the old buffer if it exists
+  if(tx_ring[tdt].addr != 0) {
+    kfree((void *)tx_ring[tdt].addr);
+  }
+  
+  // Fill in the descriptor
+  tx_ring[tdt].addr = (uint64)buf;
+  tx_ring[tdt].length = len;
+  tx_ring[tdt].cmd = E1000_TXD_CMD_EOP | E1000_TXD_CMD_RS;
+  tx_ring[tdt].status = 0;
+  
+  // Update the tail pointer
+  regs[E1000_TDT] = (tdt + 1) % TX_RING_SIZE;
+  
+  release(&e1000_lock);
   return 0;
 }
 
@@ -119,6 +145,48 @@ e1000_recv(void)
   // Create and deliver a buf for each packet (using net_rx()).
   //
 
+  acquire(&e1000_lock);
+  
+  // Loop to handle multiple packets
+  while(1) {
+    // Get the next RX ring index
+    uint32 rdt = (regs[E1000_RDT] + 1) % RX_RING_SIZE;
+    
+    // Check if a packet is ready (DD bit must be set)
+    if((rx_ring[rdt].status & E1000_RXD_STAT_DD) == 0) {
+      // No more packets ready
+      break;
+    }
+    
+    // Extract the packet buffer and length
+    char *buf = (char *)rx_ring[rdt].addr;
+    uint16 len = rx_ring[rdt].length;
+    
+    // Allocate a new buffer for this descriptor BEFORE releasing the lock
+    char *newbuf = (char *)kalloc();
+    if(newbuf == 0) {
+      panic("e1000_recv: kalloc failed");
+    }
+    
+    // Update the descriptor
+    rx_ring[rdt].addr = (uint64)newbuf;
+    rx_ring[rdt].status = 0;
+    
+    // Update the tail pointer
+    regs[E1000_RDT] = rdt;
+    
+    // Release the lock BEFORE calling net_rx() to avoid deadlock
+    // (net_rx() may call e1000_transmit() which needs the lock)
+    release(&e1000_lock);
+    
+    // Deliver the packet to the network stack (this may call e1000_transmit)
+    net_rx(buf, len);
+    
+    // Re-acquire the lock for the next iteration
+    acquire(&e1000_lock);
+  }
+  
+  release(&e1000_lock);
 }
 
 void
