@@ -215,6 +215,7 @@ e1000_intr(void)
       netstats.max_irq_delta = delta;
   }
   netstats.last_irq_time = now;
+  netstats.irq_entry_time = now;
   release(&e1000_lock);
 
   e1000_recv();

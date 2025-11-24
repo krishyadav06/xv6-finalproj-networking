@@ -18,6 +18,7 @@ static uint32 local_ip = MAKE_IP_ADDR(10, 0, 2, 15);
 static uint8 host_mac[ETHADDR_LEN] = { 0x52, 0x55, 0x0a, 0x00, 0x02, 0x02 };
 
 static struct spinlock netlock;
+extern struct spinlock e1000_lock;
 
 // UDP receive queue structures
 #define NPORT 16        // max number of bound ports
@@ -49,7 +50,8 @@ netinit(void)
 
   memset(&netstats, 0, sizeof(netstats));
   netstats.min_irq_delta = (uint64)-1;
-  
+  netstats.min_kernel_latency = (uint64)-1;
+
   // initialize port structures
   for(int i = 0; i < NPORT; i++) {
     ports[i].bound = 0;
@@ -324,6 +326,7 @@ sys_netreset(void)
 {
   memset(&netstats, 0, sizeof(netstats));
   netstats.min_irq_delta = (uint64)-1;
+  netstats.min_kernel_latency = (uint64)-1;
   return 0;
 }
 
@@ -414,7 +417,26 @@ ip_rx(char *buf, int len)
   
   // wake up any process waiting for packets on this port
   wakeup(&ports[port_idx]);
-  
+
+  // kernel latency calculations
+  acquire(&e1000_lock);
+  if(netstats.irq_entry_time != 0) {
+    uint64 wakeup_time = r_time();
+    uint64 latency = wakeup_time - netstats.irq_entry_time;
+
+    netstats.kernel_latency_sum += latency;
+    netstats.kernel_latency_count++;
+
+    if(netstats.min_kernel_latency == (uint64)-1 || latency < netstats.min_kernel_latency)
+      netstats.min_kernel_latency = latency;
+
+    if(latency > netstats.max_kernel_latency)
+      netstats.max_kernel_latency = latency;
+
+    netstats.irq_entry_time = 0;
+  }
+  release(&e1000_lock);
+
   release(&netlock);
   
   // free the original buffer (we've copied the payload)

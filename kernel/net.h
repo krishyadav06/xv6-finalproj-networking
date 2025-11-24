@@ -140,4 +140,10 @@ struct netstats {
   uint64 udp_dropped_unbound;   // dropped from an unbound port
   uint64 udp_dropped_full;      // dropped from full queue
   uint64 udp_returned;          // successfully delivered to recv
+
+  uint64 irq_entry_time;        // when interrupt fires
+  uint64 kernel_latency_sum;    // total latency
+  uint64 kernel_latency_count;  // number of times latency is counted
+  uint64 min_kernel_latency;    // min latency
+  uint64 max_kernel_latency;    // max latency
 };
