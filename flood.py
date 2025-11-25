@@ -35,8 +35,8 @@ def main():
                 time.sleep(pause)
 
     rate = sent / args.secs if args.secs > 0 else 0
-    print(f"sent {sent} packets, size={args.size if not args.nettest else 'varies'} bytes, "
-          f"pps≈{rate:.1f}, dst={args.dst}:{args.port}, nettest={args.nettest}")
+    print(f"sent {sent} packets, size={args.size} bytes, "
+          f"pps≈{rate:.1f}, dst={args.dst}:{args.port}")
 
 if __name__ == "__main__":
     main()

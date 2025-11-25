@@ -25,7 +25,7 @@ static unsigned short in_cksum(const unsigned char *addr, int len);
 
 // UDP receive queue structures
 #define NPORT 16        // max number of bound ports
-#define NPACKET 16      // max packets queued per port
+#define NPACKET 128      // max packets queued per port
 
 struct packet {
   char *buf;            // packet buffer

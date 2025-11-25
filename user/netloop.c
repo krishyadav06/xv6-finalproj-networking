@@ -3,6 +3,10 @@
 #include "kernel/stat.h"
 #include "user/user.h"
 
+static uint64 time_to_msec(uint64 time_diff) {
+  return time_diff / 10000;  // 10MHz = 10000 ticks per millisecond
+}
+
 static void
 usage(void)
 {
@@ -32,7 +36,7 @@ main(int argc, char *argv[])
 
   uint64 total_pkts = 0;
   uint64 total_bytes = 0;
-  uint ticks_prev = uptime();
+  uint64 time_prev = gettime();
   uint64 prev_pkts = 0;
   uint64 prev_bytes = 0;
 
@@ -50,16 +54,17 @@ main(int argc, char *argv[])
     total_pkts++;
     total_bytes += cc;
 
-    uint ticks_now = uptime();
-    int elapsed = ticks_now - ticks_prev;
-    if(elapsed >= report_ms){
+    uint64 time_now = gettime();
+    uint64 elapsed_ms = time_to_msec(time_now - time_prev);
+    if(elapsed_ms >= (uint64)report_ms){
       uint64 dpkts = total_pkts - prev_pkts;
       uint64 dbytes = total_bytes - prev_bytes;
-      uint pps = (elapsed > 0) ? (dpkts * 1000 / elapsed) : 0;
-      uint kbps = (elapsed > 0) ? (dbytes * 1000 / elapsed) : 0;
-      printf("t=%u ms pkts=%lu bytes=%lu (+%lu, +%luB) pps~%u Bps~%u\n",
-             ticks_now, total_pkts, total_bytes, dpkts, dbytes, pps, kbps);
-      ticks_prev = ticks_now;
+      uint64 pps = (elapsed_ms > 0) ? (dpkts * 1000 / elapsed_ms) : 0;
+      uint64 bps = (elapsed_ms > 0) ? (dbytes * 1000 / elapsed_ms) : 0;
+      uint64 total_ms = time_to_msec(time_now);
+      printf("t=%lu ms pkts=%lu bytes=%lu (+%lu, +%luB) pps~%lu Bps~%lu\n",
+             total_ms, total_pkts, total_bytes, dpkts, dbytes, pps, bps);
+      time_prev = time_now;
       prev_pkts = total_pkts;
       prev_bytes = total_bytes;
     }
