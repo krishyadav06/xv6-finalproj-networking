@@ -44,7 +44,7 @@ main(int argc, char *argv[])
 
   uint64 start_time = get_time();
 
-  printf("t(ms) rx_pkts rx_bytes udp_q udp_drop_full udp_drop_unbound udp_ret irq min_irq_dt max_irq_dt last_rx k_lat_avg k_lat_min k_lat_max k_samples\n");
+  printf("t(ms) rx_pkts rx_bytes udp_q udp_drop_full udp_drop_unbound udp_ret irq k_proc_avg k_proc_min k_proc_max k_lat_avg k_lat_min k_lat_max k_samples\n");
 
   int iter = 0;
   while(count < 0 || iter < count){
@@ -61,13 +61,17 @@ main(int argc, char *argv[])
     if(s.kernel_latency_count > 0)
       avg_klat = s.kernel_latency_sum / s.kernel_latency_count;
 
+    uint64 avg_kproc = 0;
+    if(s.kernel_proc_count > 0)
+      avg_kproc = s.kernel_proc_sum / s.kernel_proc_count;
+
     // convert timing units
-    uint64 min_irq_dt = time_to_usec(s.min_irq_delta);
-    uint64 max_irq_dt = time_to_usec(s.max_irq_delta);
-    uint64 last_rx = time_to_msec(s.last_recv_time);
     uint64 k_lat_avg = time_to_usec(avg_klat);
     uint64 k_lat_min = time_to_usec(s.min_kernel_latency);
     uint64 k_lat_max = time_to_usec(s.max_kernel_latency);
+    uint64 k_proc_avg = time_to_usec(avg_kproc);
+    uint64 k_proc_min = time_to_usec(s.min_kernel_proc);
+    uint64 k_proc_max = time_to_usec(s.max_kernel_proc);
 
     printf("%lu %d %d %d %d %d %d %d %lu %lu %lu %lu %lu %lu %d\n",
            elapsed_ms,
@@ -78,9 +82,9 @@ main(int argc, char *argv[])
            (int)s.udp_dropped_unbound,
            (int)s.udp_returned,
            (int)s.rx_interrupts,
-           min_irq_dt,
-           max_irq_dt,
-           last_rx,
+           k_proc_avg,
+           k_proc_min,
+           k_proc_max,
            k_lat_avg,
            k_lat_min,
            k_lat_max,

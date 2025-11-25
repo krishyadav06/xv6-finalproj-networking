@@ -32,6 +32,7 @@ struct packet {
   uint32 src_ip;        // source IP address (host byte order)
   uint16 src_port;      // source port (host byte order)
   uint16 len;           // payload length
+  uint64 arrival_time;  // when packet queued
 };
 
 struct port {
@@ -54,6 +55,7 @@ struct raw_packet {
   uint32 src_ip;        // source IP address (host byte order)
   uint16 len;           // total packet length
   uint8 protocol;       // IP protocol number
+  uint64 arrival_time;  // when packet queued
 };
 
 struct raw_socket {
@@ -75,6 +77,7 @@ netinit(void)
   memset(&netstats, 0, sizeof(netstats));
   netstats.min_irq_delta = (uint64)-1;
   netstats.min_kernel_latency = (uint64)-1;
+  netstats.min_kernel_proc = (uint64)-1;
 
   // initialize port structures
   for(int i = 0; i < NPORT; i++) {
@@ -369,12 +372,28 @@ sys_recv(void)
   uint16 src_port = pkt->src_port;
   uint16 pkt_len = pkt->len;
   char *pkt_buf = pkt->buf;
-  
+  uint64 arrival_time = pkt->arrival_time;
+
   // update queue
   ports[port_idx].head = (head + 1) % NPACKET;
   ports[port_idx].count--;
-  
+
   release(&netlock);
+
+  // calculate per-packet kernel latency (from interrupt to wakeup)
+  if(arrival_time != 0) {
+    uint64 now = r_time();
+    uint64 latency = now - arrival_time;
+
+    acquire(&e1000_lock);
+    netstats.kernel_latency_sum += latency;
+    netstats.kernel_latency_count++;
+    if(netstats.min_kernel_latency == (uint64)-1 || latency < netstats.min_kernel_latency)
+      netstats.min_kernel_latency = latency;
+    if(latency > netstats.max_kernel_latency)
+      netstats.max_kernel_latency = latency;
+    release(&e1000_lock);
+  }
   
   // copy data to user space
   int copy_len = pkt_len < maxlen ? pkt_len : maxlen;
@@ -521,6 +540,7 @@ sys_netreset(void)
   memset(&netstats, 0, sizeof(netstats));
   netstats.min_irq_delta = (uint64)-1;
   netstats.min_kernel_latency = (uint64)-1;
+  netstats.min_kernel_proc = (uint64)-1;
   return 0;
 }
 
@@ -648,35 +668,32 @@ ip_rx(char *buf, int len)
   ports[port_idx].packets[tail].src_ip = src_ip;
   ports[port_idx].packets[tail].src_port = sport;
   ports[port_idx].packets[tail].len = payload_len;
-  
+  ports[port_idx].packets[tail].arrival_time = netstats.irq_entry_time;  // store IRQ entry time
+
   ports[port_idx].tail = (tail + 1) % NPACKET;
   ports[port_idx].count++;
   netstats.udp_queued++;
-  
+
   // wake up any process waiting for packets on this port
   wakeup(&ports[port_idx]);
 
-  // kernel latency calculations
-  acquire(&e1000_lock);
+  // calculate kernel processing time (from interrupt to queueing)
   if(netstats.irq_entry_time != 0) {
-    uint64 wakeup_time = r_time();
-    uint64 latency = wakeup_time - netstats.irq_entry_time;
+    uint64 now = r_time();
+    uint64 proc_time = now - netstats.irq_entry_time;
 
-    netstats.kernel_latency_sum += latency;
-    netstats.kernel_latency_count++;
-
-    if(netstats.min_kernel_latency == (uint64)-1 || latency < netstats.min_kernel_latency)
-      netstats.min_kernel_latency = latency;
-
-    if(latency > netstats.max_kernel_latency)
-      netstats.max_kernel_latency = latency;
-
-    netstats.irq_entry_time = 0;
+    acquire(&e1000_lock);
+    netstats.kernel_proc_sum += proc_time;
+    netstats.kernel_proc_count++;
+    if(netstats.min_kernel_proc == (uint64)-1 || proc_time < netstats.min_kernel_proc)
+      netstats.min_kernel_proc = proc_time;
+    if(proc_time > netstats.max_kernel_proc)
+      netstats.max_kernel_proc = proc_time;
+    release(&e1000_lock);
   }
-  release(&e1000_lock);
 
   release(&netlock);
-  
+
   // free the original buffer (we've copied the payload)
   kfree(buf);
 }

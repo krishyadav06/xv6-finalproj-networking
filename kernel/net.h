@@ -155,8 +155,13 @@ struct netstats {
   uint64 udp_returned;          // successfully delivered to recv
 
   uint64 irq_entry_time;        // when interrupt fires
-  uint64 kernel_latency_sum;    // total latency
+  uint64 kernel_latency_sum;    // total latency (from interrupt to the wakeup call)
   uint64 kernel_latency_count;  // number of times latency is counted
   uint64 min_kernel_latency;    // min latency
-  uint64 max_kernel_latency;    // max latency
+  uint64 max_kernel_latency;    // max latency 
+
+  uint64 kernel_proc_sum;       // total kernel processing time (from interrupt to queueing time - meant to measure the kernel functionality only)
+  uint64 kernel_proc_count;     // number of packets processed
+  uint64 min_kernel_proc;       // min kernel processing time
+  uint64 max_kernel_proc;       // max kernel processing time
 };
