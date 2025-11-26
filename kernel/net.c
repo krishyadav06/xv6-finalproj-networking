@@ -79,7 +79,7 @@ netinit(void)
   netstats.min_kernel_latency = (uint64)-1;
   netstats.min_kernel_proc = (uint64)-1;
 
-  // initialize port structures
+  // init ports
   for(int i = 0; i < NPORT; i++) {
     ports[i].bound = 0;
     ports[i].port = 0;
@@ -88,7 +88,7 @@ netinit(void)
     ports[i].count = 0;
   }
   
-  // initialize raw socket structures
+  // init raw sockets
   for(int i = 0; i < NRAWSOCK; i++) {
     raw_sockets[i].bound = 0;
     raw_sockets[i].protocol = 0;
@@ -146,7 +146,7 @@ uint64
 sys_unbind(void)
 {
   //
-  // Optional: Your code here.
+  // Optional: Your code here. (no need to implement this for our needs either)
   //
 
   return 0;

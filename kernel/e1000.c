@@ -8,10 +8,10 @@
 #include "e1000_dev.h"
 #include "net.h"
 
-#define TX_RING_SIZE 128
+#define TX_RING_SIZE 16
 static struct tx_desc tx_ring[TX_RING_SIZE] __attribute__((aligned(16)));
 
-#define RX_RING_SIZE 128
+#define RX_RING_SIZE 16
 static struct rx_desc rx_ring[RX_RING_SIZE] __attribute__((aligned(16)));
 
 // remember where the e1000's registers live.
