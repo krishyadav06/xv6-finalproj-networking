@@ -76,8 +76,8 @@ netinit(void)
 
   memset(&netstats, 0, sizeof(netstats));
   netstats.min_irq_delta = (uint64)-1;
-  netstats.min_kernel_latency = (uint64)-1;
-  netstats.min_kernel_proc = (uint64)-1;
+  netstats.min_ttr = (uint64)-1;
+  netstats.min_ttq = (uint64)-1;
 
   // init ports
   for(int i = 0; i < NPORT; i++) {
@@ -386,12 +386,12 @@ sys_recv(void)
     uint64 latency = now - arrival_time;
 
     acquire(&e1000_lock);
-    netstats.kernel_latency_sum += latency;
-    netstats.kernel_latency_count++;
-    if(netstats.min_kernel_latency == (uint64)-1 || latency < netstats.min_kernel_latency)
-      netstats.min_kernel_latency = latency;
-    if(latency > netstats.max_kernel_latency)
-      netstats.max_kernel_latency = latency;
+    netstats.ttr_sum += latency;
+    netstats.ttr_count++;
+    if(netstats.min_ttr == (uint64)-1 || latency < netstats.min_ttr)
+      netstats.min_ttr = latency;
+    if(latency > netstats.max_ttr)
+      netstats.max_ttr = latency;
     release(&e1000_lock);
   }
   
@@ -539,8 +539,8 @@ sys_netreset(void)
 {
   memset(&netstats, 0, sizeof(netstats));
   netstats.min_irq_delta = (uint64)-1;
-  netstats.min_kernel_latency = (uint64)-1;
-  netstats.min_kernel_proc = (uint64)-1;
+  netstats.min_ttr = (uint64)-1;
+  netstats.min_ttq = (uint64)-1;
   return 0;
 }
 
@@ -677,18 +677,18 @@ ip_rx(char *buf, int len)
   // wake up any process waiting for packets on this port
   wakeup(&ports[port_idx]);
 
-  // calculate kernel processing time (from interrupt to queueing)
+  // calculate time to queue (from interrupt to queueing)
   if(netstats.irq_entry_time != 0) {
     uint64 now = r_time();
     uint64 proc_time = now - netstats.irq_entry_time;
 
     acquire(&e1000_lock);
-    netstats.kernel_proc_sum += proc_time;
-    netstats.kernel_proc_count++;
-    if(netstats.min_kernel_proc == (uint64)-1 || proc_time < netstats.min_kernel_proc)
-      netstats.min_kernel_proc = proc_time;
-    if(proc_time > netstats.max_kernel_proc)
-      netstats.max_kernel_proc = proc_time;
+    netstats.ttq_sum += proc_time;
+    netstats.ttq_count++;
+    if(netstats.min_ttq == (uint64)-1 || proc_time < netstats.min_ttq)
+      netstats.min_ttq = proc_time;
+    if(proc_time > netstats.max_ttq)
+      netstats.max_ttq = proc_time;
     release(&e1000_lock);
   }
 

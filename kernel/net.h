@@ -140,28 +140,31 @@ struct dns_data {
 } __attribute__((packed));
 
 struct netstats {
-  uint64 rx_packets;            // packet frames in ring
-  uint64 rx_bytes;              // bytes of those frames
-  uint64 rx_ring_empty;         // how often recv found an empty ring
-  uint64 rx_interrupts;         // receive interrupt handled
-  uint64 last_irq_time;         // last interrupt (from rdtime ticks)
-  uint64 min_irq_delta;         // closest rx irq
-  uint64 max_irq_delta;         // furthest rx irq
-  uint64 last_recv_time;        // last packet received
+  uint64 rx_packets;            // packets in ring
+  uint64 rx_bytes;              // bytes of those packets
+  uint64 rx_ring_empty;         // recv found empty ring
+  uint64 rx_interrupts;         // number of receive interrupts
+  uint64 last_irq_time;         // last interrupt
+  uint64 min_irq_delta;         // closest rx interrupt
+  uint64 max_irq_delta;         // furthest rx interrupt
+  uint64 last_recv_time;        // last receive time
 
   uint64 udp_queued;            // queued in port
-  uint64 udp_dropped_unbound;   // dropped from an unbound port
-  uint64 udp_dropped_full;      // dropped from full queue
+  uint64 udp_dropped_unbound;   // dropped due to an unbound port
+  uint64 udp_dropped_full;      // dropped due to full queue
   uint64 udp_returned;          // successfully delivered to recv
 
-  uint64 irq_entry_time;        // when interrupt fires
-  uint64 kernel_latency_sum;    // total latency (from interrupt to the wakeup call)
-  uint64 kernel_latency_count;  // number of times latency is counted
-  uint64 min_kernel_latency;    // min latency
-  uint64 max_kernel_latency;    // max latency 
+  uint64 irq_entry_time;        // number of interrupt handler entries
 
-  uint64 kernel_proc_sum;       // total kernel processing time (from interrupt to queueing time - meant to measure the kernel functionality only)
-  uint64 kernel_proc_count;     // number of packets processed
-  uint64 min_kernel_proc;       // min kernel processing time
-  uint64 max_kernel_proc;       // max kernel processing time
+  // time to receive (from interrupt to userspace return)
+  uint64 ttr_sum;
+  uint64 ttr_count;
+  uint64 min_ttr;
+  uint64 max_ttr;
+
+  // time to queue (from interrupt to being queued in port)
+  uint64 ttq_sum;
+  uint64 ttq_count;
+  uint64 min_ttq;
+  uint64 max_ttq;
 };

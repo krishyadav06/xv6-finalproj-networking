@@ -26,14 +26,11 @@ int
 main(int argc, char *argv[])
 {
   int interval = 1000; // default 1s between samples
-  int count = -1;      // run until killed if negative
-
-  if(argc > 3)
+  
+  if(argc > 2)
     usage();
   if(argc >= 2)
     interval = atoi(argv[1]);
-  if(argc == 3)
-    count = atoi(argv[2]);
   if(interval <= 0)
     interval = 1000;
 
@@ -44,10 +41,10 @@ main(int argc, char *argv[])
 
   uint64 start_time = get_time();
 
-  printf("t(ms) rx_pkts rx_bytes udp_q udp_drop_full udp_drop_unbound udp_ret irq k_proc_avg k_proc_min k_proc_max k_lat_avg k_lat_min k_lat_max k_samples\n");
+  printf("t(ms) rx_pkts rx_bytes udp_q udp_drop_full udp_drop_unbound udp_ret irq ttq_avg ttq_min ttq_max ttr_avg ttr_min ttr_max k_samples\n");
 
   int iter = 0;
-  while(count < 0 || iter < count){
+  for (;;){
     struct netstats s;
     if(netstats(&s) < 0){
       printf("netmon: netstats failed\n");
@@ -57,21 +54,21 @@ main(int argc, char *argv[])
     uint64 now = get_time();
     uint64 elapsed_ms = time_to_msec(now - start_time);
 
-    uint64 avg_klat = 0;
-    if(s.kernel_latency_count > 0)
-      avg_klat = s.kernel_latency_sum / s.kernel_latency_count;
+    uint64 avg_ttr = 0;
+    if(s.ttr_count > 0)
+      avg_ttr = s.ttr_sum / s.ttr_count;
 
-    uint64 avg_kproc = 0;
-    if(s.kernel_proc_count > 0)
-      avg_kproc = s.kernel_proc_sum / s.kernel_proc_count;
+    uint64 avg_ttq = 0;
+    if(s.ttq_count > 0)
+      avg_ttq = s.ttq_sum / s.ttq_count;
 
     // convert timing units
-    uint64 k_lat_avg = time_to_usec(avg_klat);
-    uint64 k_lat_min = time_to_usec(s.min_kernel_latency);
-    uint64 k_lat_max = time_to_usec(s.max_kernel_latency);
-    uint64 k_proc_avg = time_to_usec(avg_kproc);
-    uint64 k_proc_min = time_to_usec(s.min_kernel_proc);
-    uint64 k_proc_max = time_to_usec(s.max_kernel_proc);
+    uint64 ttr_avg = time_to_usec(avg_ttr);
+    uint64 ttr_min = time_to_usec(s.min_ttr);
+    uint64 ttr_max = time_to_usec(s.max_ttr);
+    uint64 ttq_avg = time_to_usec(avg_ttq);
+    uint64 ttq_min = time_to_usec(s.min_ttq);
+    uint64 ttq_max = time_to_usec(s.max_ttq);
 
     printf("%lu %d %d %d %d %d %d %d %lu %lu %lu %lu %lu %lu %d\n",
            elapsed_ms,
@@ -82,17 +79,18 @@ main(int argc, char *argv[])
            (int)s.udp_dropped_unbound,
            (int)s.udp_returned,
            (int)s.rx_interrupts,
-           k_proc_avg,
-           k_proc_min,
-           k_proc_max,
-           k_lat_avg,
-           k_lat_min,
-           k_lat_max,
-           (int)s.kernel_latency_count);
+           ttq_avg,
+           ttq_min,
+           ttq_max,
+           ttr_avg,
+           ttr_min,
+           ttr_max,
+           (int)s.ttr_count);
 
     iter++;
-    // note - 1 tick roughly 100ms
-    int sleep_ticks = (interval + 99) / 100; 
+    
+    // wait before next monitor call
+    int sleep_ticks = interval / 100; 
     if(sleep_ticks < 1) sleep_ticks = 1;
     pause(sleep_ticks);
   }
